@@ -111,8 +111,7 @@
 
 (defun errno ()
   #-lispworks
-  (uffi:deref-pointer (%errno-location) (:pointer :int)
-                      #+)
+  (uffi:deref-pointer (%errno-location) (:pointer :int))
   #+lispworks
   (lw:errno-value))
 
