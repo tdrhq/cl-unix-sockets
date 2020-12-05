@@ -24,6 +24,10 @@ pipeline {
         stage ('sbcl') {
             sh "sbcl --script test-runner.lisp"
         }
+
+        stage('Lispworks') {
+            sh "/opt/software/lispworks/lispworks-* -build test-runner.lisp"
+        }
     }
 
 }
