@@ -1,5 +1,5 @@
 pipeline {
-    agent master
+    agent { label "master" }
 
     stages {
 	    stage ('Checkout') {
@@ -22,11 +22,15 @@ pipeline {
 	    }
 
         stage ('sbcl') {
-            sh "sbcl --script test-runner.lisp"
+            steps {
+                sh "sbcl --script test-runner.lisp"
+            }
         }
 
         stage('Lispworks') {
-            sh "/opt/software/lispworks/lispworks-* -build test-runner.lisp"
+            steps {
+                sh "/opt/software/lispworks/lispworks-* -build test-runner.lisp"
+            }
         }
     }
 
