@@ -25,3 +25,7 @@ int unix_socket_is_ready(int fd) {
         }
         return 1;
 }
+
+int unix_socket_errno () {
+        return errno;
+}

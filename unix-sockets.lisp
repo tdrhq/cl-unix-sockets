@@ -8,6 +8,9 @@
 
 (defconstant +shut-rdrw+ 2)
 
+#+windows
+(error "Only Mac and Linux supported for the moment. Maybe FreeBSD, not sure")
+
 (let ((output (asdf:output-file 'asdf:compile-op
                                 (asdf:find-component :unix-sockets "unix_sockets"))))
   #-lispworks
@@ -90,17 +93,15 @@
          :format-string fmt
          :format-arguments args))
 
-#-lispworks
-(cffi:defcfun (#+darwin "__error" #+linux "__errno_location" %errno-location)
-    ()
-  :returning (:pointer :int))
+(cffi:defcfun ("unix_socket_errno" %unix-socket-errno)
+    :int)
 
 (cffi:defcfun ("close" %close) :void
   (fd :int))
 
 (defun errno ()
   #-lispworks
-  (cffi:deref-pointer (%errno-location) (:pointer :int))
+  (%unix-socket-errno)
   #+lispworks
   (lw:errno-value))
 
@@ -253,7 +254,8 @@ systems"
        (close-unix-socket ,sck))))
 
 (defun accept-unix-socket (sock)
-  (let ((cl-fd (pcheck (%accept (fd sock) nil nil))))
+  (let ((cl-fd (pcheck (%accept (fd sock) (cffi:null-pointer)
+                                (cffi:null-pointer)))))
     (make-instance 'unix-socket :fd cl-fd)))
 
 (defun shutdown-unix-socket (sock)
