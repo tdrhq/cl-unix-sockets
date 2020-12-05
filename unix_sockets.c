@@ -11,6 +11,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <sys/un.h>
 
 // return non zero if the fd is ready to read
 int unix_socket_is_ready(int fd) {
@@ -28,4 +29,16 @@ int unix_socket_is_ready(int fd) {
 
 int unix_socket_errno () {
         return errno;
+}
+
+struct sockaddr_un* unix_socket_make_sockaddr(char* path) {
+        struct sockaddr_un* sockaddr = malloc(sizeof(struct sockaddr_un));
+        memset(sockaddr, 0, sizeof(*sockaddr));
+        sockaddr->sun_family = AF_UNIX;
+        strncpy(sockaddr->sun_path, path, sizeof(sockaddr->sun_path));
+        return sockaddr;
+}
+
+int unix_socket_sockaddr_size() {
+        return sizeof(struct sockaddr_un);
 }

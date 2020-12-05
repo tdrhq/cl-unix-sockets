@@ -23,19 +23,7 @@
   (fli:register-module :unix-sockets
                        :real-name output))
 
-(cffi:defcstruct sockaddr-un
-  #+darwin
-  (len :unsigned-byte)
-  #+darwin
-  (family :unsigned-byte)
-  #-darwin
-  (family :unsigned-short)
-  (path (:array :char 108)))
-
-(cffi:defcfun "strncpy" (:pointer :char)
-  (dest (:pointer :unsigned-char))
-  (src :string)
-  (n :unsigned-int))
+(cffi:defcstruct sockaddr-un)
 
 (cffi:defcfun "socket" :int
   (domain :int)
@@ -93,11 +81,16 @@
          :format-string fmt
          :format-arguments args))
 
+(cffi:defcfun "unix_socket_make_sockaddr" (:pointer sockaddr-un)
+  (path :string))
+
 (cffi:defcfun ("unix_socket_errno" %unix-socket-errno)
     :int)
 
 (cffi:defcfun ("close" %close) :void
   (fd :int))
+
+(cffi:defcfun "unix_socket_sockaddr_size" :int)
 
 (defun errno ()
   #-lispworks
@@ -205,19 +198,11 @@ systems"
 (defun %make-unix-socket (path bind-fn)
   (let* ((fd (socket +af-unix+ +sock-stream+ 0))
          (path (namestring path))
-         (sockaddr (cffi:foreign-alloc '(:struct sockaddr-un))))
-    (cffi:with-foreign-string (path path)
-      (let ((dest (cffi:foreign-slot-pointer sockaddr '(:struct sockaddr-un) 'path)))
-        (strncpy (char-array-to-pointer dest) path +max-path-len+)))
-    (setf (cffi:foreign-slot-value sockaddr
-                                   '(:struct sockaddr-un)
-                                   'family)
-          +af-unix+)
-
-    (let ((ret (funcall bind-fn fd sockaddr (cffi:foreign-type-size 'sockaddr-un))))
+         (sockaddr (unix-socket-make-sockaddr path)))
+    (let ((ret (funcall bind-fn fd sockaddr (unix-socket-sockaddr-size))))
       (unless (eql 0 ret)
         (let ((errno (errno)))
-         (unix-socket-error "Failed to ~a address (errno: ~a: ~a)" bind-fn errno (strerror errno)))))
+          (unix-socket-error "Failed to ~a address (errno: ~a: ~a)" bind-fn errno (strerror errno)))))
 
     (make-instance 'unix-socket :fd fd)))
 
