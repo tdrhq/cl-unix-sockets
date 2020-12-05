@@ -199,8 +199,7 @@ systems"
                                   (cffi:foreign-free buf)))))
 
 (defun char-array-to-pointer (x)
-  ;; fixme
-  (uffi:char-array-to-pointer x))
+  x)
 
 (defun %make-unix-socket (path bind-fn)
   (let* ((fd (socket +af-unix+ +sock-stream+ 0))
