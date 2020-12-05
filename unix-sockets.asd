@@ -37,6 +37,9 @@
 
 
 (defsystem :unix-sockets
+    :description "UNIX Domain socket"
+    :author "Arnold Noronha <arnold@tdrhq.com>"
+    :license  "Apache License, Version 2.0"
     :serial t
     :depends-on (:cffi
                  :trivial-gray-streams
