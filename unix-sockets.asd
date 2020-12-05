@@ -38,7 +38,7 @@
 
 (defsystem :unix-sockets
     :serial t
-    :depends-on (:uffi
+    :depends-on (:cffi
                  :trivial-gray-streams
                  :flexi-streams
                  :log4cl

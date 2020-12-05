@@ -11,7 +11,7 @@
 (let ((output (asdf:output-file 'asdf:compile-op
                                 (asdf:find-component :unix-sockets "unix_sockets"))))
   #-lispworks
-  (uffi:load-foreign-library
+  (cffi:load-foreign-library
    output)
 
   ;; This is LW-specific impl is probably not required, I'm using this
@@ -20,7 +20,7 @@
   (fli:register-module :unix-sockets
                        :real-name output))
 
-(uffi:def-struct sockaddr-un
+(cffi:defcstruct sockaddr-un
   #+darwin
   (len :unsigned-byte)
   #+darwin
@@ -29,66 +29,55 @@
   (family :unsigned-short)
   (path (:array :char 108)))
 
-(uffi:def-function "strncpy"
-  ((dest (:pointer (:unsigned :char)))
-   (src :cstring)
-   (n :unsigned-int))
-  :returning (:pointer :char))
+(cffi:defcfun "strncpy" (:pointer :char)
+  (dest (:pointer :unsigned-char))
+  (src :string)
+  (n :unsigned-int))
 
-(uffi:def-function "socket"
-    ((domain :int)
-     (type :int)
-     (protocol :int))
-  :returning :int)
+(cffi:defcfun "socket" :int
+  (domain :int)
+  (type :int)
+  (protocol :int))
 
-(uffi:def-function "bind"
-    ((fd :int)
-     (sockaddr (:pointer sockaddr-un)) ;; lies
-     (addr-len :unsigned-int))
-  :returning :int)
+(cffi:defcfun "bind" :int
+  (fd :int)
+  (sockaddr (:pointer (:struct sockaddr-un))) ;; lies
+  (addr-len :unsigned-int))
 
-(uffi:def-function "connect"
-    ((fd :int)
-     (sockaddr (:pointer sockaddr-un)) ;; lies
-     (addr-len :unsigned-int))
-  :returning :int)
+(cffi:defcfun "connect" :int
+  (fd :int)
+  (sockaddr (:pointer (:struct sockaddr-un))) ;; lies
+  (addr-len :unsigned-int))
 
-(uffi:def-function "strerror"
-    ((errnum :int))
-  :returning :cstring)
+(cffi:defcfun "strerror" :string
+  (errnum :int))
 
-(uffi:def-function ("listen" %listen)
-    ((fd :int)
-     (backlog :int))
-  :returning :int)
+(cffi:defcfun ("listen" %listen) :int
+  (fd :int)
+  (backlog :int))
 
-(uffi:def-function ("accept" %accept)
-    ((fd :int)
-     (sockaddr (:pointer :void))
-     (addr-len (:pointer :void)))
-  :returning :int)
+(cffi:defcfun ("accept" %accept) :int
+  (fd :int)
+  (sockaddr (:pointer :void))
+  (addr-len (:pointer :void)))
 
-(uffi:def-function ("write" %write)
-    ((fd :int)
-     (buf (:pointer :unsigned-char))
-     (count :unsigned-int))
-  :returning :int)
+(cffi:defcfun ("write" %write) :int
+  (fd :int)
+  (buf (:pointer :unsigned-char))
+  (count :unsigned-int))
 
-(uffi:def-function ("recv" %recv)
-    ((fd :int)
-     (buf (:pointer :unsigned-char))
-     (count :unsigned-int)
-     (flags :int))
-  :returning :int)
+(cffi:defcfun ("recv" %recv) :int
+  (fd :int)
+  (buf (:pointer :unsigned-char))
+  (count :unsigned-int)
+  (flags :int))
 
-(uffi:def-function ("shutdown" %shutdown)
-    ((fd :int)
-     (how :int))
-  :returning :int)
+(cffi:defcfun ("shutdown" %shutdown) :int
+  (fd :int)
+  (how :int))
 
-(uffi:def-function "unix_socket_is_ready"
-    ((fd :int))
-  :returning :boolean)
+(cffi:defcfun "unix_socket_is_ready" :boolean
+  (fd :int))
 
 (define-condition unix-socket-error (simple-error) ())
 
@@ -102,16 +91,16 @@
          :format-arguments args))
 
 #-lispworks
-(uffi:def-function (#+darwin "__error" #+linux "__errno_location" %errno-location)
+(cffi:defcfun (#+darwin "__error" #+linux "__errno_location" %errno-location)
     ()
   :returning (:pointer :int))
 
-(uffi:def-function ("close" %close)
-    ((fd :int)))
+(cffi:defcfun ("close" %close) :void
+  (fd :int))
 
 (defun errno ()
   #-lispworks
-  (uffi:deref-pointer (%errno-location) (:pointer :int))
+  (cffi:deref-pointer (%errno-location) (:pointer :int))
   #+lispworks
   (lw:errno-value))
 
@@ -120,29 +109,15 @@
   ((sock :initarg :sock
          :accessor sock)))
 
-#+nil
-(defmethod stream-read-sequence ((stream internal-stream)
-                                 sequence
-                                 start
-                                 end
-                                 &key &allow-other-keys)
-  (let* ((len (min (length sequence) +buf-size+))
-         (type `(list :array :unsigned-char ,len)))
-    (uffi:with-foreign-object
-        (arr `(list :array :unsigned-char ,len))
-        (loop for i from 0 below len
-              do
-                 (setf (elt sequence i)
-                       (uffi:deref-array arr :unsigned-char i))))))
 
 (defmethod stream-write-byte ((stream internal-stream)
                               byte)
   (handler-bind ((error (lambda (e)
                           (log:info "Errr while writing byte: ~a" e))))
    (let ((buf (buf (sock stream))))
-     (setf (uffi:deref-array buf :unsigned-char  0)
+     (setf (cffi:mem-ref buf :unsigned-char  0)
            byte)
-     (pcheck (%write (fd (sock stream)) (uffi:char-array-to-pointer buf) 1)))))
+     (pcheck (%write (fd (sock stream)) (char-array-to-pointer buf) 1)))))
 
 (defmethod close ((stream internal-stream) &key abort)
   (declare (ignore abort))
@@ -182,7 +157,7 @@ systems"
              (log:trace "standard eof")
              :eof)
             ((> num-bytes 0)
-             (uffi:deref-array buf :unsigned-char 0))
+             (cffi:mem-ref buf :unsigned-char 0))
             ((= (errno) +econnreset+)
              ;; AFAICT, this is just like an EOF, at least for the purpose
              ;; of the stream.
@@ -206,7 +181,7 @@ systems"
   (format stream "#<UNIX-SOCKET id:~a>" (id s)))
 
 (defmethod initialize-instance :after ((s unix-socket) &key fd &allow-other-keys)
-  (let ((buf (uffi:allocate-foreign-object :unsigned-char +buf-size+))
+  (let ((buf (cffi:foreign-alloc :unsigned-char :count +buf-size+))
         (close-fn (let ((closed-p nil)
                         (lock (bt:make-lock))
                         (id (id s)))
@@ -221,21 +196,25 @@ systems"
                          (funcall close-fn)))
     (trivial-garbage:finalize s (lambda ()
                                   (funcall close-fn)
-                                  (uffi:free-foreign-object buf)))))
+                                  (cffi:foreign-free buf)))))
+
+(defun char-array-to-pointer (x)
+  ;; fixme
+  (uffi:char-array-to-pointer x))
 
 (defun %make-unix-socket (path bind-fn)
   (let* ((fd (socket +af-unix+ +sock-stream+ 0))
          (path (namestring path))
-         (sockaddr (uffi:allocate-foreign-object 'sockaddr-un)))
-    (uffi:with-cstring (path path)
-      (let ((dest (uffi:get-slot-pointer sockaddr ':char 'path)))
-        (strncpy (uffi:char-array-to-pointer dest) path +max-path-len+)))
-    (setf (uffi:get-slot-value sockaddr #+darwin :unsigned-byte
-                                        #-darwin :unsigned-short
-                                        'family)
+         (sockaddr (cffi:foreign-alloc '(:struct sockaddr-un))))
+    (cffi:with-foreign-string (path path)
+      (let ((dest (cffi:foreign-slot-pointer sockaddr '(:struct sockaddr-un) 'path)))
+        (strncpy (char-array-to-pointer dest) path +max-path-len+)))
+    (setf (cffi:foreign-slot-value sockaddr
+                                   '(:struct sockaddr-un)
+                                   'family)
           +af-unix+)
 
-    (let ((ret (funcall bind-fn fd sockaddr (uffi:size-of-foreign-type 'sockaddr-un))))
+    (let ((ret (funcall bind-fn fd sockaddr (cffi:foreign-type-size 'sockaddr-un))))
       (unless (eql 0 ret)
         (let ((errno (errno)))
          (unix-socket-error "Failed to ~a address (errno: ~a: ~a)" bind-fn errno (strerror errno)))))
