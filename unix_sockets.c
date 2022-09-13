@@ -2,7 +2,6 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
-#include <sys/prctl.h>
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/stat.h>
