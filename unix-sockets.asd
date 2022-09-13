@@ -3,10 +3,6 @@
    :asdf))
 (in-package :unix-sockets-asdf)
 
-(eval-when (:compile-toplevel :load-toplevel :execute)
-   (unless (find-package 'uffi)
-     (asdf:operate 'asdf:load-op 'uffi)))
-
 (defclass lib-source-file (c-source-file)
   ())
 
@@ -40,12 +36,13 @@
     :description "UNIX Domain socket"
     :author "Arnold Noronha <arnold@tdrhq.com>"
     :license  "Apache License, Version 2.0"
-    :serial t
-    :depends-on (:cffi
-                 :trivial-gray-streams
-                 :flexi-streams
-                 :log4cl
-                 :trivial-garbage)
-    :components ((:file "package")
-                 (lib-source-file "unix_sockets")
-                 (:file "unix-sockets")))
+  :serial t
+  :defsystem-depends-on (:uffi #| todo: remove |#)
+  :depends-on (:cffi
+               :trivial-gray-streams
+               :flexi-streams
+               :log4cl
+               :trivial-garbage)
+  :components ((:file "package")
+               (lib-source-file "unix_sockets")
+               (:file "unix-sockets")))
