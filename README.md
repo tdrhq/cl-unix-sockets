@@ -1,4 +1,6 @@
 
+[![tdrhq](https://circleci.com/gh/tdrhq/cl-unix-sockets.svg?style=shield)](https://app.circleci.com/pipelines/github/tdrhq/cl-unix-sockets?branch=master)
+
 # UNIX socket support for Common Lisp
 
 Most major Lisp implementations don't come with any in-built support
