@@ -11,6 +11,11 @@
 #+windows
 (error "Only Mac and Linux supported for the moment. Maybe FreeBSD, not sure")
 
+(defvar *use-internal-stream-p*
+  (or #-(or sbcl lispworks) t)
+  "Documentation, a flag whether to use the internal stream or use native
+socket IO code. Do not modify this. This is mainly used a means for
+testability.")
 
 (define-condition unix-socket-error (simple-error) ())
 
@@ -71,17 +76,28 @@
 (defun make-unix-socket (path &key (backlog 50))
   (let ((sock (%make-unix-socket path 'bind)))
     (%%listen sock backlog)
-    sock))
+    (cond
+      #+sbcl
+      ((not *use-internal-stream-p*)
+       ;; File descriptors will always be converted to SBCL sockets
+       (make-instance 'sb-bsd-sockets:local-socket
+                      :descriptor sock))
+      (t
+       sock))))
 
 (defun connect-unix-socket (path)
   (%make-unix-socket path 'connect))
 
 (defun close-unix-socket (sock)
   (when (>= (fd sock) 0)
-    #+lispworks
-    (close (unix-socket-stream sock))
-    #-lispworks
-    (%close (fd sock))
+    (cond
+      (*use-internal-stream-p*
+       (%close (fd sock)))
+      (t
+       #+lispworks
+       (close (unix-socket-stream sock))
+       #+sbcl
+       (sb-bsd-sockets:socket-close (fd sock))))
     (setf (fd sock) -1)))
 
 (defmacro with-unix-socket ((sck fn) &body body)
@@ -92,15 +108,21 @@
 
 (defun accept-unix-socket (sock)
   (let ((cl-fd
-          #+lispworks
-          (comm::get-fd-from-socket (fd sock))
-          #-lispworks
-          (pcheck (%accept (fd sock) (cffi:null-pointer)
-                                (cffi:null-pointer)))))
+          (cond
+            (*use-internal-stream-p*
+             (pcheck (%accept (fd sock) (cffi:null-pointer)
+                              (cffi:null-pointer))))
+            (t
+             #+lispworks
+             (comm::get-fd-from-socket (fd sock))
+             #+sbcl
+             (sb-bsd-sockets:socket-accept (fd sock))))))
     (make-instance 'unix-socket :fd cl-fd)))
 
+(find-class 'sb-bsd-sockets:socket)
+
 (defun shutdown-unix-socket (sock)
-  #-lispworks
+  "Graceful shutdown the socket"
   (pcheck (%shutdown (fd sock)
                      +shut-rdrw+)))
 
@@ -108,12 +130,14 @@
 ;; (close (make-unix-socket "/tmp/foo91"))
 
 (defun %unix-socket-stream (sock)
-  #+lispworks
-  (make-instance 'comm:socket-stream :socket (fd sock)
-                                     :direction :io)
-  #-lispworks
-  (flexi-streams:make-flexi-stream
-   (make-instance 'internal-stream :sock sock)))
+  (cond
+    (*use-internal-stream-p*
+     (flexi-streams:make-flexi-stream
+      (make-instance 'internal-stream :sock sock)))
+    (t
+     #+lispworks
+     (make-instance 'comm:socket-stream :socket (fd sock)
+                                        :direction :io))))
 
 
 (defmethod unix-socket-stream (sock)
