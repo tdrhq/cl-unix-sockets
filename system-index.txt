@@ -1,2 +1,0 @@
-unix-sockets.asd
-unix-sockets.tests.asd

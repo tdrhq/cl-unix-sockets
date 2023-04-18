@@ -33,7 +33,7 @@
 (test send-and-recv-a-single-byte
   (tmpdir:with-tmpdir (dir)
     (let ((file (path:catfile dir "sock"))
-          (read-value 0))
+          (read-value :unread))
       (with-unix-socket (server-sock (make-unix-socket file))
         (let ((thread (bt:make-thread (lambda ()
                                         (with-unix-socket (client (accept-unix-socket server-sock))
@@ -74,14 +74,15 @@
     (let ((file (path:catfile dir "sock"))
           (read-value 0))
       (with-unix-socket (server-sock (make-unix-socket file))
-        (let ((thread (bt:make-thread (lambda ()
-                                        (handler-case
-                                            (with-unix-socket (client (accept-unix-socket server-sock))
-                                              (let ((stream (unix-socket-stream client)))
-                                                (setf read-value
-                                                      (read-byte stream))))
-                                          (test-error (e)
-                                            (setf read-value -1)))))))
+        (let ((thread (bt:make-thread
+                       (lambda ()
+                         (handler-case
+                             (with-unix-socket (client (accept-unix-socket server-sock))
+                               (let ((stream (unix-socket-stream client)))
+                                 (setf read-value
+                                       (read-byte stream))))
+                           (test-error (e)
+                             (setf read-value -1)))))))
 
           (with-unix-socket (client (connect-unix-socket file))
             (let ((Stream (unix-socket-stream client)))

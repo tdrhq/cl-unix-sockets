@@ -115,30 +115,13 @@
 
 (defmethod close ((stream internal-stream) &key abort)
   (declare (ignore abort))
-  (shutdown-unix-socket (sock stream))
-  (funcall (close-fn (sock stream))))
-
-#+lispworks
-(defun wait-till-fd-ready (fd)
-  "Calling UNIX recv/read can block. At least on LW, this would
-non-interruptible, so we want to avoid this, even though it would
-otherwise be correct. I'm sure there are such considerations on non-LW
-systems"
-  (mp:notice-fd fd)
-  (unwind-protect
-       (mp:process-wait
-        "Waiting for UNIX socket to be ready"
-        #'unix-socket-is-ready
-        fd)
-    (mp:unnotice-fd fd)))
+  (shutdown-unix-socket (sock stream)))
 
 (defmethod stream-read-byte ((stream internal-stream))
   (handler-bind ((error (lambda (e)
                           (log:info "Error while reading byte: ~a" e))))
    (let ((buf (buf (sock stream)))
          (fd (fd (sock stream))))
-     #+lispworks
-     (wait-till-fd-ready fd)
      (cond
        ((< fd 0)
         (log:trace "Sending eof because fd < 0")
@@ -168,29 +151,16 @@ systems"
        :accessor fd)
    (id :initform (random 10000000)
        :accessor id)
-   (close-fn :accessor close-fn)
+   (stream :initform nil)
    (buf :accessor buf)))
 
 (defmethod print-object ((s unix-socket) stream)
   (format stream "#<UNIX-SOCKET id:~a>" (id s)))
 
 (defmethod initialize-instance :after ((s unix-socket) &key fd &allow-other-keys)
-  (let ((buf (cffi:foreign-alloc :unsigned-char :count +buf-size+))
-        (close-fn (let ((closed-p nil)
-                        (lock (bt:make-lock))
-                        (id (id s)))
-                    (lambda ()
-                      (bt:with-lock-held (lock)
-                        (unless closed-p
-                          (%close fd)
-                          (setf closed-p t)))))))
-    (setf (buf s) buf)
-    (Setf (close-fn s) (lambda ()
-                         (setf (fd s) -1)
-                         (funcall close-fn)))
-    (trivial-garbage:finalize s (lambda ()
-                                  (funcall close-fn)
-                                  (cffi:foreign-free buf)))))
+  (declare (ignore fd))
+  (let ((buf (cffi:foreign-alloc :unsigned-char :count +buf-size+)))
+    (setf (buf s) buf)))
 
 (defun char-array-to-pointer (x)
   x)
@@ -229,8 +199,12 @@ systems"
   (%make-unix-socket path 'connect))
 
 (defun close-unix-socket (sock)
-  (funcall (close-fn sock))
-  (setf (fd sock) -1))
+  (when (>= (fd sock) 0)
+    #+lispworks
+    (close (unix-socket-stream sock))
+    #-lispworks
+    (%close (fd sock))
+    (setf (fd sock) -1)))
 
 (defmacro with-unix-socket ((sck fn) &body body)
   `(let ((,sck ,fn))
@@ -239,17 +213,33 @@ systems"
        (close-unix-socket ,sck))))
 
 (defun accept-unix-socket (sock)
-  (let ((cl-fd (pcheck (%accept (fd sock) (cffi:null-pointer)
+  (let ((cl-fd
+          #+lispworks
+          (comm::get-fd-from-socket (fd sock))
+          #-lispworks
+          (pcheck (%accept (fd sock) (cffi:null-pointer)
                                 (cffi:null-pointer)))))
     (make-instance 'unix-socket :fd cl-fd)))
 
 (defun shutdown-unix-socket (sock)
+  #-lispworks
   (pcheck (%shutdown (fd sock)
                      +shut-rdrw+)))
 
 
 ;; (close (make-unix-socket "/tmp/foo91"))
 
-(defun unix-socket-stream (sock)
+(defun %unix-socket-stream (sock)
+  #+lispworks
+  (make-instance 'comm:socket-stream :socket (fd sock)
+                                     :direction :io)
+  #-lispworks
   (flexi-streams:make-flexi-stream
    (make-instance 'internal-stream :sock sock)))
+
+
+(defmethod unix-socket-stream (sock)
+  (with-slots (stream) sock
+    (or
+     stream
+     (setf stream (%unix-socket-stream sock)))))
