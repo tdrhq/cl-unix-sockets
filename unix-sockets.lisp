@@ -11,64 +11,6 @@
 #+windows
 (error "Only Mac and Linux supported for the moment. Maybe FreeBSD, not sure")
 
-(let ((output (asdf:output-file 'asdf:compile-op
-                                (asdf:find-component :unix-sockets "unix_sockets"))))
-  #-lispworks
-  (cffi:load-foreign-library
-   output)
-
-  ;; This is LW-specific impl is probably not required, I'm using this
-  ;; name in an external app to fli:disconnect-module
-  #+lispworks
-  (fli:register-module :unix-sockets
-                       :real-name output))
-
-(cffi:defcstruct sockaddr-un)
-
-(cffi:defcfun "socket" :int
-  (domain :int)
-  (type :int)
-  (protocol :int))
-
-(cffi:defcfun "bind" :int
-  (fd :int)
-  (sockaddr (:pointer (:struct sockaddr-un))) ;; lies
-  (addr-len :unsigned-int))
-
-(cffi:defcfun "connect" :int
-  (fd :int)
-  (sockaddr (:pointer (:struct sockaddr-un))) ;; lies
-  (addr-len :unsigned-int))
-
-(cffi:defcfun "strerror" :string
-  (errnum :int))
-
-(cffi:defcfun ("listen" %listen) :int
-  (fd :int)
-  (backlog :int))
-
-(cffi:defcfun ("accept" %accept) :int
-  (fd :int)
-  (sockaddr (:pointer :void))
-  (addr-len (:pointer :void)))
-
-(cffi:defcfun ("write" %write) :int
-  (fd :int)
-  (buf (:pointer :unsigned-char))
-  (count :unsigned-int))
-
-(cffi:defcfun ("recv" %recv) :int
-  (fd :int)
-  (buf (:pointer :unsigned-char))
-  (count :unsigned-int)
-  (flags :int))
-
-(cffi:defcfun ("shutdown" %shutdown) :int
-  (fd :int)
-  (how :int))
-
-(cffi:defcfun "unix_socket_is_ready" :boolean
-  (fd :int))
 
 (define-condition unix-socket-error (simple-error) ())
 
@@ -80,70 +22,6 @@
   (error 'unix-socket-error
          :format-string fmt
          :format-arguments args))
-
-(cffi:defcfun "unix_socket_make_sockaddr" (:pointer sockaddr-un)
-  (path :string))
-
-(cffi:defcfun ("unix_socket_errno" %unix-socket-errno)
-    :int)
-
-(cffi:defcfun ("close" %close) :void
-  (fd :int))
-
-(cffi:defcfun "unix_socket_sockaddr_size" :int)
-
-(defun errno ()
-  #-lispworks
-  (%unix-socket-errno)
-  #+lispworks
-  (lw:errno-value))
-
-(defclass internal-stream (fundamental-binary-input-stream
-                           fundamental-binary-output-stream)
-  ((sock :initarg :sock
-         :accessor sock)))
-
-
-(defmethod stream-write-byte ((stream internal-stream)
-                              byte)
-  (handler-bind ((error (lambda (e)
-                          (log:info "Errr while writing byte: ~a" e))))
-   (let ((buf (buf (sock stream))))
-     (setf (cffi:mem-ref buf :unsigned-char  0)
-           byte)
-     (pcheck (%write (fd (sock stream)) (char-array-to-pointer buf) 1)))))
-
-(defmethod close ((stream internal-stream) &key abort)
-  (declare (ignore abort))
-  (shutdown-unix-socket (sock stream)))
-
-(defmethod stream-read-byte ((stream internal-stream))
-  (handler-bind ((error (lambda (e)
-                          (log:info "Error while reading byte: ~a" e))))
-   (let ((buf (buf (sock stream)))
-         (fd (fd (sock stream))))
-     (cond
-       ((< fd 0)
-        (log:trace "Sending eof because fd < 0")
-        :eof)
-       (t
-        (let ((num-bytes (%recv fd
-                                buf 1 0)))
-          (cond
-            ((eql num-bytes 0)
-             (log:trace "standard eof")
-             :eof)
-            ((> num-bytes 0)
-             (cffi:mem-ref buf :unsigned-char 0))
-            ((= (errno) +econnreset+)
-             ;; AFAICT, this is just like an EOF, at least for the purpose
-             ;; of the stream.
-             ;; https://stackoverflow.com/questions/2974021/what-does-econnreset-mean-in-the-context-of-an-af-local-socket
-             (log:trace "Sending :eof")
-             :eof)
-            (t
-             (log:trace "throwing error ~a" (errno))
-             (throw-errno)))))))))
 
 
 (defclass unix-socket ()
