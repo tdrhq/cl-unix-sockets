@@ -1,16 +1,28 @@
 (in-package :unix-sockets)
 
-(let ((output (asdf:output-file 'asdf:compile-op
-                                (asdf:find-component :unix-sockets "unix_sockets"))))
+(defun native-so ()
+  (asdf:output-file 'asdf:compile-op
+                    (asdf:find-component :unix-sockets "unix_sockets")))
+
+(let ((output (native-so)))
   #-lispworks
   (cffi:load-foreign-library
    output)
 
-  ;; This is LW-specific impl is probably not required, I'm using this
-  ;; name in an external app to fli:disconnect-module
   #+lispworks
   (fli:register-module :unix-sockets
                        :real-name output))
+
+#+lispworks
+(unless (hcl:delivered-image-p)
+  (lw:define-action "Delivery Actions" "Embed cl-unix-sockets"
+    (lambda ()
+      (fli:get-embedded-module :unix-sockets (native-so)))))
+
+#+lispworks
+(lw:define-action "When starting image" "Load embedded cl-unix-sockets"
+  (lambda ()
+    (fli:install-embedded-module :unix-sockets)))
 
 (cffi:defcstruct sockaddr-un)
 
