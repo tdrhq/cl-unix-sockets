@@ -1,11 +1,26 @@
 (defpackage :test-unix-sockets
-  (:use :cl
-        :unix-sockets
-        :alexandria
-   :fiveam))
+  (:use #:cl
+        #:unix-sockets
+        #:alexandria
+        #:fiveam)
+  (:import-from #:unix-sockets
+                #:*use-internal-stream-p*)
+  (:shadow #:test))
 (in-package :test-unix-sockets)
 
 (def-suite* :test-unix-sockets)
+
+(defmacro test (name &body body)
+  `(progn
+     (fiveam:test ,name
+       ,@body)
+     (fiveam:test ,(intern (format nil "~a-WITH-INTERNAL-STREAM" name))
+       (let ((old *use-internal-stream-p*))
+         (unwind-protect
+              (progn
+                (setf *use-internal-stream-p* t)
+                ,@body)
+           (setf *use-internal-stream-p* old))))))
 
 (test simple-open-and-close
   (tmpdir:with-tmpdir (dir)
