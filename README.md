@@ -9,6 +9,12 @@ At the moment I'm prioritizing stability over performance (so for
 instance I don't have stream-read-sequence implemented). In the
 future, we'll add those tweaks.
 
+The biggest issue with using FFI, is making sure all the FFI calls are
+interruptible. This interruptible IO is currently only supported on
+Lispworks, where we use Lispworks' native socket stack as much as
+possible. In theory this should be doable on at least SBCL too.
+
+
 ## Author
 
 Arnold Noronha <arnold@tdrhq.com>
