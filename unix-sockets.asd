@@ -46,5 +46,5 @@
   :components ((:file "package")
                (lib-source-file "unix_sockets")
                (:file "ffi")
-               (:file "streams")
+               (:file "streams" :if-feature (:not :lispworks))
                (:file "unix-sockets")))
