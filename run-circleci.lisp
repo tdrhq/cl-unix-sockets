@@ -2,7 +2,7 @@
 
 (push #P "./" asdf:*central-registry*)
 
-(ql:quickload :unix-sockets.test)
+(ql:quickload :unix-sockets.tests)
 
 (unless (fiveam:run-all-tests)
   (uiop:quit 1))
