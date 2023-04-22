@@ -1,3 +1,4 @@
+#-(:or :mswindows :windows)
 (defsystem :unix-sockets.tests
     :serial t
     :depends-on (:tmpdir
@@ -6,3 +7,6 @@
                  :cl-fad
                  :trivial-timeout)
     :components ((:file "test-unix-sockets")))
+
+#+(:or :mswindows :windows)
+(defsystem :unix-sockets.tests)

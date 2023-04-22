@@ -31,7 +31,6 @@
                     :output :interactive
                     :error-output :interactive))
 
-
 (defsystem :unix-sockets
     :description "UNIX Domain socket"
     :author "Arnold Noronha <arnold@tdrhq.com>"
