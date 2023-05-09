@@ -22,7 +22,7 @@
   t)
 
 (defmethod perform ((o compile-op) (c lib-source-file))
-  (uiop:run-program (list "/usr/bin/gcc" "-shared" "-o" (namestring (car (output-files o c)))
+  (uiop:run-program (list "/usr/bin/env" "gcc" "-shared" "-o" (namestring (car (output-files o c)))
                           "-Werror"
                           "-fPIC"
                           (namestring
