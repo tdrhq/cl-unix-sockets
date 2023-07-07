@@ -8,4 +8,5 @@
            #:unix-socket-error
            #:unix-socket-stream
            #:accept-unix-socket
-           #:with-unix-socket))
+           #:with-unix-socket
+	   #:fd))
