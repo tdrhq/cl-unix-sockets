@@ -5,6 +5,8 @@
   ((sock :initarg :sock
          :accessor sock)))
 
+(defmethod stream-element-type ((stream internal-stream))
+  'integer)
 
 (defmethod stream-write-byte ((stream internal-stream)
                               byte)
