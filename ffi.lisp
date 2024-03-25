@@ -26,6 +26,20 @@
 
 (cffi:defcstruct sockaddr-un)
 
+(cffi:defstruct cmsghdr
+  (cmsg_len :int)
+  (cmsg_level :int)
+  (cmsg_type :int))
+
+(cffi:defcstruct msghdr
+  (msg_name :pointer)
+  (msg_namelen :int)
+  (msg_iov :pointer)
+  (msg_iovlen :int)
+  (msg_control (:pointer (:struct cmsghdr)))
+  (msg_controllen :int)
+  (msg_flags :int))
+
 (cffi:defcfun "socket" :int
   (domain :int)
   (type :int)
@@ -63,6 +77,14 @@
   (buf (:pointer :unsigned-char))
   (count :unsigned-int)
   (flags :int))
+
+(cffi:defcfun ("recvmsg" %recvmsg) :int
+  (fd :int)
+  (msghdr (:pointer (:struct msghdr)))
+  (buf (:pointer :unsigned-char))
+  (count :unsigned-int)
+  (flags :int))
+
 
 (cffi:defcfun ("shutdown" %shutdown) :int
   (fd :int)
