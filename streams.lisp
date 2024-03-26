@@ -2,14 +2,11 @@
 
 (defclass internal-stream (fundamental-binary-input-stream
                            fundamental-binary-output-stream)
-  ((sock :initarg :sock
-         :accessor sock)))
+  ((sock :initarg :sock :accessor sock)))
 
-(defmethod stream-element-type ((stream internal-stream))
-  'integer)
+(defmethod stream-element-type ((stream internal-stream)) 'integer)
 
-(defmethod stream-write-byte ((stream internal-stream)
-                              byte)
+(defmethod stream-write-byte ((stream internal-stream) byte)
   (handler-bind ((error (lambda (e)
                           (log:info "Errr while writing byte: ~a" e))))
    (let ((buf (buf (sock stream))))
@@ -64,11 +61,9 @@
   ((sock :initarg :sock :accessor sock)
    (ancillary-fd :initarg :ancillary-fd :accessor ancillary-fd)))
 
-(defmethod stream-element-type ((stream ancillary-stream))
-  'integer)
+(defmethod stream-element-type ((stream ancillary-stream)) 'integer)
 
-(defmethod stream-write-byte ((stream ancillary-stream)
-                              byte)
+(defmethod stream-write-byte ((stream ancillary-stream) byte)
   (handler-bind ((error (lambda (e)
                           (log:info "Errr while writing byte: ~a" e))))
    (let ((buf (buf (sock stream))))
@@ -97,9 +92,11 @@
        (t
         (let ((num-bytes (%recvmsg fd msghdr 0))
 	      (cmsg (%cmsg-firsthdr msghdr)))
-	  (when (eq (cffi:slot-value cmsg 'cmsg_type) +scm_rights+)
-	    (let ((fd (cffi:mem-ref (cffi:slot-value cmsg 'cmsg_data) :int)))
-	      (setf (ancillary-fd stream) fd)))
+	  (if (eq (cffi:slot-value cmsg 'cmsg_type) +scm_rights+)
+	      (let ((fd (cffi:mem-ref (cffi:slot-value cmsg 'cmsg_data) :int)))
+		(setf (ancillary-fd stream) fd))
+	      ;; TODO: This might actually kill off the file descriptor on each new byte read
+	      (setf (ancillary-fd stream) nil))
 
           (cond
             ((eql num-bytes 0)
