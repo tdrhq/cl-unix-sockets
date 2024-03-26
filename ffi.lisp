@@ -81,8 +81,6 @@
 (cffi:defcfun ("recvmsg" %recvmsg) :int
   (fd :int)
   (msghdr (:pointer (:struct msghdr)))
-  (buf (:pointer :unsigned-char))
-  (count :unsigned-int)
   (flags :int))
 
 
@@ -103,6 +101,9 @@
   (fd :int))
 
 (cffi:defcfun "unix_socket_sockaddr_size" :int)
+
+(cffi:defcfun ("cmsg_firsthdr" %cmsg-firsthdr) (:pointer (:struct cmsghdr))
+  (msghdr (:pointer (:struct msghdr))))
 
 (defun errno ()
   #-lispworks

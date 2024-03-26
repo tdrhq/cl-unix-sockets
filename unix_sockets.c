@@ -41,3 +41,7 @@ struct sockaddr_un* unix_socket_make_sockaddr(char* path) {
 int unix_socket_sockaddr_size() {
         return sizeof(struct sockaddr_un);
 }
+
+struct cmsghdr cmsg_firsthdr(struct msghdr* msg) {
+  return *CMSG_FIRSTHDR(msg);
+}
