@@ -80,11 +80,11 @@
                           (log:info "Error while reading byte: ~a" e))))
    (let ((buf (buf (sock stream)))
          (fd (fd (sock stream)))
-	 (msghdr (cffi:foreign-alloc 'msghdr))
-	 (cmsghdr (cffi:foreign-alloc 'cmsghdr)))
-     (setf (cffi:slot-value msghdr 'msg_iov) buf)
-     (setf (cffi:slot-value msghdr 'msg_control) cmsghdr)
-     (setf (cffi:slot-value msghdr 'msg_controllen) (cffi:foreign-sizeof 'cmsghdr))
+	 (msghdr (cffi:foreign-alloc (:pointer (:struct msghdr))))
+	 (cmsghdr (cffi:foreign-alloc (:pointer (:struct cmsghdr)))))
+     (setf (cffi:foreign-slot-value msghdr (:pointer (:struct msghdr)) 'iov) buf)
+     (setf (cffi:foreign-slot-value msghdr (:pointer (:struct msghdr)) 'control) cmsghdr)
+     (setf (cffi:foreign-slot-value msghdr (:pointer (:struct msghdr)) 'controllen) (cffi:foreign-type-size (:pointer (:struct cmsghdr))))
      (cond
        ((< fd 0)
         (log:trace "Sending eof because fd < 0")
@@ -92,8 +92,8 @@
        (t
         (let ((num-bytes (%recvmsg fd msghdr 0))
 	      (cmsg (%cmsg-firsthdr msghdr)))
-	  (if (eq (cffi:slot-value cmsg 'cmsg_type) +scm_rights+)
-	      (let ((fd (cffi:mem-ref (cffi:slot-value cmsg 'cmsg_data) :int)))
+	  (if (eq (cffi:foreign-slot-value cmsg (:pointer (:struct cmsghdr)) 'cmsg_type) +scm_rights+)
+	      (let ((fd (cffi:mem-ref (cffi:foreign-slot-value cmsg (:pointer :struct cmsghdr) 'cmsg_data) :int)))
 		(setf (ancillary-fd stream) fd))
 	      ;; TODO: This might actually kill off the file descriptor on each new byte read
 	      (setf (ancillary-fd stream) nil))

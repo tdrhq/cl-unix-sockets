@@ -26,7 +26,7 @@
 
 (cffi:defcstruct sockaddr-un)
 
-(cffi:defstruct cmsghdr
+(cffi:defcstruct cmsghdr
   (cmsg_len :int)
   (cmsg_level :int)
   (cmsg_type :int))
