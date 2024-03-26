@@ -11,6 +11,9 @@
 #+windows
 (error "Only Mac and Linux supported for the moment. Maybe FreeBSD, not sure")
 
+;; NOTE: Other options - 'ancillary-stream
+(defvar *stream-class* 'internal-stream)
+
 (defvar *use-internal-stream-p*
   #+lispworks nil
   #-lispworks t
@@ -121,7 +124,7 @@ testability.")
   (cond
     (*use-internal-stream-p*
      (flexi-streams:make-flexi-stream
-      (make-instance 'internal-stream :sock sock)))
+      (make-instance *stream-class* :sock sock)))
     (t
      #+lispworks
      (make-instance 'comm:socket-stream :socket (fd sock)

@@ -64,7 +64,7 @@
   ((sock :initarg :sock :accessor sock)
    (ancillary-fd :initarg :ancillary-fd :accessor ancillary-fd)))
 
-(defmethod stream-element-type ((stream internal-stream))
+(defmethod stream-element-type ((stream ancillary-stream))
   'integer)
 
 (defmethod stream-write-byte ((stream ancillary-stream)
